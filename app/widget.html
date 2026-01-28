@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Team's Leave Summary - Ahmedabad University Theme</title>
+    <script src="https://static.zohocdn.com/zp5/widgets/zpwidgetsdk.min.js"></script>
+    <style>
+        /* Ahmedabad University Branding Colors */
+        :root { 
+            --au-maroon: #800000; 
+            --au-gold: #D4AF37;
+            --au-text: #333333;
+            --au-light-bg: #fdfaf5;
+            --au-border: #e2d8c4;
+        }
+        
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f1ea; margin-top: 70px; color: var(--au-text); }
+        
+        .summary-card { background: white; border-top: 5px solid var(--au-maroon); box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 2px; padding: 25px; max-width: 1200px; margin: 0 auto; }
+        
+        .summary-header { border-bottom: 2px solid var(--au-gold); padding-bottom: 10px; margin-bottom: 20px; }
+        .summary-header h2 { margin: 0; font-size: 1.5rem; color: var(--au-maroon); letter-spacing: 0.5px; }
+        .instruction { font-size: 12px; font-style: italic; color: #777; margin-top: 5px; }
+
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px; }
+        .search-box input { padding: 8px 12px; border: 1px solid var(--au-border); border-radius: 0; width: 220px; outline: none; }
+        .search-box input:focus { border-color: var(--au-maroon); }
+        
+        /* Table Design */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: var(--au-maroon); padding: 12px; text-align: left; font-size: 12px; color: white; border: 1px solid #600000; text-transform: uppercase; }
+        td { padding: 12px; border: 1px solid var(--au-border); font-size: 14px; }
+        
+        /* Highlighted Employee Name Column */
+        .emp-name-col { font-weight: 500; color: var(--au-text); border-left: 3px solid var(--au-gold); background: var(--au-light-bg); }
+        
+        .leave-count-link { color: var(--au-maroon); text-decoration: none; font-weight: bold; border-bottom: 1px solid var(--au-gold); cursor: pointer; transition: 0.2s; }
+        .leave-count-link:hover { color: var(--au-gold); border-bottom-color: var(--au-maroon); }
+
+        /* Modal / Popup */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); }
+        .modal-content { background-color: #fff; margin: 8% auto; padding: 0; border-radius: 0; width: 70%; max-width: 750px; position: relative; border-top: 8px solid var(--au-gold); }
+        .modal-header { background: var(--au-maroon); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 1.2rem; }
+        .close-modal { font-size: 28px; cursor: pointer; color: white; line-height: 1; }
+        .modal-body { padding: 20px; max-height: 400px; overflow-y: auto; }
+
+        /* Pagination Styling */
+        .pagination-area { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; font-size: 13px; }
+        .page-btns button { padding: 8px 16px; border: 1px solid var(--au-maroon); background: white; color: var(--au-maroon); cursor: pointer; font-weight: bold; margin-left: 5px; transition: 0.3s; }
+        .page-btns button:hover:not(:disabled) { background: var(--au-maroon); color: white; }
+        .page-btns button:disabled { border-color: #ccc; color: #ccc; cursor: not-allowed; }
+        
+        #loader { display: none; text-align: center; padding: 15px; color: var(--au-maroon); font-weight: bold; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="summary-card">
+        <div class="controls">
+            <div>
+                Show 
+                <select id="entryCount" onchange="changePageSize()" style="padding: 5px; border: 1px solid var(--au-border);">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="25">25</option>
+                </select>
+                entries
+            </div>
+            <div class="search-box">
+                <input type="text" id="summarySearch" onkeyup="handleSearch()" placeholder="Search Employee Name...">
+            </div>
+        </div>
+
+        <div id="loader">Retrieving University Records...</div>
+
+        <table id="summaryTable">
+            <thead>
+                <tr>
+                    <th>EMPLOYEE NAME</th>
+                    <th>TOTAL APPROVED LEAVES</th>
+                </tr>
+            </thead>
+            <tbody id="summary-body"></tbody>
+        </table>
+
+        <div class="pagination-area">
+            <div id="pagination-info">Showing 0 to 0 of 0 entries</div>
+            <div class="page-btns">
+                <button id="prevBtn" onclick="changePage(-1)">Previous</button>
+                <button id="nextBtn" onclick="changePage(1)">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="leaveDetailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalEmployeeName">Leave Record Details</h3>
+                <span class="close-modal" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <table>
+                    <thead>
+                        <tr style="background: var(--au-gold);">
+                            <th style="background: #b8972f; border-color: #a08428;">LEAVE TYPE</th>
+                            <th style="background: #b8972f; border-color: #a08428;">FROM</th>
+                            <th style="background: #b8972f; border-color: #a08428;">TO</th>
+                            <th style="background: #b8972f; border-color: #a08428;">COUNT</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let summaryData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        let pageSize = 10;
+        let globalRawData = [];
+
+        window.onload = function() {
+            ZOHO.embeddedApp.init().then(() => {
+                fetchSummaryData();
+            });
+        };
+
+        function fetchSummaryData() {
+            document.getElementById('loader').style.display = 'block';
+            const today = new Date();
+            const from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+            const request = {
+                url: "https://people.zoho.in/people/api/v3/leave-tracker/leaves",
+                method: "GET",
+                connectiondetails: "zoho_people_connection",
+                apiParams: { 
+                    "from_date": formatDate(from), 
+                    "to_date": formatDate(to), 
+                    "data_select": "SUBORDINATES" 
+                }
+            };
+
+            ZOHO.People.API.invokeUrl(request).then(function(recordData) {
+                try {
+                    const parsedData = typeof recordData === "string" ? JSON.parse(recordData) : recordData;
+                    const result = JSON.parse(parsedData.content);
+                    if (result.status === "success" && result.data) {
+                        globalRawData = result.data;
+                        processSummary(result.data);
+                    }
+                } catch (e) { console.error("JSON Parsing Error", e); }
+                document.getElementById('loader').style.display = 'none';
+            });
+        }
+
+        function processSummary(data) {
+            const map = {};
+            data.filter(item => item.approval_status?.toLowerCase() === "approved").forEach(item => {
+                const name = item.employee?.name || "Unknown";
+                const id = item.employee?.zoho_id;
+                let count = 0;
+                if (item.days) {
+                    Object.values(item.days).forEach(d => {
+                        count += parseFloat(d.leave_count) || 0;
+                    });
+                }
+                if (!map[id]) {
+                    map[id] = { name: name, total: 0, id: id };
+                }
+                map[id].total += count;
+            });
+
+            summaryData = Object.values(map);
+            filteredData = [...summaryData];
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('summary-body');
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageItems = filteredData.slice(start, end);
+
+            tbody.innerHTML = pageItems.map((item) => `
+                <tr>
+                    <td class="emp-name-col">${item.name}</td>
+                    <td><a class="leave-count-link" onclick="openDetails('${item.id}', '${item.name}')">${item.total.toFixed(1)} Days</a></td>
+                </tr>
+            `).join('');
+            updatePaginationInfo(start, end);
+        }
+
+        function openDetails(empId, empName) {
+            document.getElementById('modalEmployeeName').innerText = `Leave Record: ${empName}`;
+            const modalBody = document.getElementById('modal-table-body');
+            
+            const details = globalRawData.filter(item => item.employee?.zoho_id == empId && item.approval_status?.toLowerCase() === "approved");
+
+            modalBody.innerHTML = details.map(item => {
+                let daySum = 0;
+                Object.values(item.days).forEach(d => daySum += parseFloat(d.leave_count));
+                return `
+                    <tr>
+                        <td style="font-weight:bold; color:var(--au-maroon);">${item.leave_type?.name}</td>
+                        <td>${item.from_date}</td>
+                        <td>${item.to_date}</td>
+                        <td>${daySum}</td>
+                    </tr>
+                `;
+            }).join('') || "<tr><td colspan='4'>No records found.</td></tr>";
+
+            document.getElementById('leaveDetailModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('leaveDetailModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            let modal = document.getElementById('leaveDetailModal');
+            if (event.target == modal) closeModal();
+        }
+
+        function handleSearch() {
+            const query = document.getElementById('summarySearch').value.toLowerCase();
+            filteredData = summaryData.filter(item => item.name.toLowerCase().includes(query));
+            currentPage = 1;
+            renderTable();
+        }
+
+        function updatePaginationInfo(start, end) {
+            const total = filteredData.length;
+            document.getElementById('pagination-info').innerText = `Showing ${total === 0 ? 0 : start + 1} to ${Math.min(end, total)} of ${total} entries`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = end >= total;
+        }
+
+        function changePage(direction) {
+            currentPage += direction;
+            renderTable();
+        }
+
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById('entryCount').value);
+            currentPage = 1;
+            renderTable();
+        }
+
+        function formatDate(d) {
+            return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        }
+    </script>
+</body>
+</html>
