@@ -1,6 +1,6 @@
-# Team's Leave Summary - Ahmedabad University Theme
+# Team's Leave Summary - Ahmedabad University
 
-A Zoho People custom webtab to display team leave summaries with Ahmedabad University branding.
+A Zoho People custom webtab to display team approved leave summaries .
 
 ## Project Structure
 
